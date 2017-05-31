@@ -1,0 +1,81 @@
+
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.std_logic_misc.all;
+use ieee.numeric_std.all;
+
+entity Data is 
+
+     port (
+        iX_Cont :  in std_logic_vector( 10  downto 0  );
+        iY_Cont :  in std_logic_vector( 10  downto 0  );
+        iDVAL :  in std_logic;
+        iCLK :  in std_logic;
+        iRST :  in std_logic;
+        iRed :  in std_logic_vector( 11  downto 0  );
+        iGreen :  in std_logic_vector( 11  downto 0  );
+        iBlue :  in std_logic_vector( 11  downto 0  );
+		  oARGB : out std_logic_vector(17 downto 0)
+		  
+    );
+	 
+	 constant cube_x			: INTEGER := 441;
+	 constant cube_y			: INTEGER := 500;
+	 constant cube_width		: INTEGER := 360;
+	 constant cube_xA			: INTEGER := cube_x + 30;
+	 constant cube_yA			: INTEGER := cube_y + 30;
+	 constant cube_xB			: INTEGER := cube_x + 150;
+	 constant cube_yB			: INTEGER := cube_y + 150;
+	 constant cube_xC			: INTEGER := cube_x + 270;
+	 constant cube_yC			: INTEGER := cube_y + 270;
+	 constant cubes_width 	: INTEGER := 60;
+	 --constant 
+	 
+	 signal cube1_red : std_logic_vector(7 downto 0);
+	 signal cube1_green : std_logic_vector(7 downto 0);
+    signal cube1_blue : std_logic_vector(7 downto 0);
+	 signal cube1_valid : std_logic;
+	 
+	 component RGB2ARGB is	
+	 	 generic(xStartPix 		:		Integer := 32;
+				yStartPix		:		Integer := 64;
+				size				:		Integer := 16
+				);	
+		 port(
+			CLK				: in		std_logic;
+			RST				: in 		std_logic;
+			Valid				: in 		std_logic;
+			X_Const 			: in 		std_logic_vector(10 downto 0);
+			y_Const 			: in 		std_logic_vector(10 downto 0);
+			RedI				: in		std_logic_vector(11 downto 0);
+			GreenI			: in		std_logic_vector(11 downto 0);
+			BlueI				: in		std_logic_vector(11 downto 0);
+			RedO				: out		std_logic_vector(7 downto 0);
+			GreenO			: out		std_logic_vector(7 downto 0);
+			BlueO				: out		std_logic_vector(7 downto 0);
+			DValid			: out		std_logic
+		 );
+		 
+	 end component RGB2ARGB;
+	 
+    begin 
+		
+		cube1 : RGB2ARGB 
+			generic map(cube_xA+2,
+							cube_yA+2,
+							cubes_width-4)
+			port map(	iCLK,
+							iRST,
+							iDVAL,
+							iX_Cont,
+							iY_Cont,
+							iREd,
+							iGreen,
+							iBlue,
+							cube1_red,
+							cube1_green,
+							cube1_blue,
+							cube1_valid
+			);	
+		oARGB <= cube1_red & cube1_green & cube1_blue;
+   end; 

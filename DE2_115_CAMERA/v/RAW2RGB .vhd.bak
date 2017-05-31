@@ -1,0 +1,182 @@
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.std_logic_misc.all;
+use ieee.numeric_std.all;
+entity RAW2RGB is 
+     port (
+        iCLK :  in std_logic;
+        iRST_n :  in std_logic;
+        iData :  in std_logic_vector( 11  downto 0  );
+        iDval :  in std_logic;
+        oRed :  out std_logic_vector( 11  downto 0  );
+        oGreen :  out std_logic_vector( 11  downto 0  );
+        oBlue :  out std_logic_vector( 11  downto 0  );
+        oDval :  out std_logic;
+        iZoom :  in std_logic_vector( 1  downto 0  );
+        iX_Cont :  in std_logic_vector( 15  downto 0  );
+        iY_Cont :  in std_logic_vector( 15  downto 0  )
+    );
+end entity; 
+
+
+architecture rtl of RAW2RGB is 
+    signal wData0 : std_logic_vector( 11  downto 0  );
+    signal wData1 : std_logic_vector( 11  downto 0  );
+    signal wData2 : std_logic_vector( 11  downto 0  );
+    signal rRed : std_logic_vector( 11  downto 0  );
+    signal rGreen : std_logic_vector( 12  downto 0  );
+    signal rBlue : std_logic_vector( 11  downto 0  );
+    signal rDval : std_logic;
+    signal wData0_d1 : std_logic_vector( 11  downto 0  );
+    signal wData0_d2 : std_logic_vector( 11  downto 0  );
+    signal wData1_d1 : std_logic_vector( 11  downto 0  );
+    signal wData1_d2 : std_logic_vector( 11  downto 0  );
+    signal wData2_d1 : std_logic_vector( 11  downto 0  );
+    signal wData2_d2 : std_logic_vector( 11  downto 0  );
+    signal dval_ctrl : std_logic;
+    signal dval_ctrl_en : std_logic;
+    component Line_Buffer is 
+         port (
+            clken :  in std_logic;
+            clock :  in std_logic;
+            shiftin :  in std_logic_vector( 11  downto 0  );
+            shiftout :  inout std_logic;
+            taps2x :  inout std_logic_vector( 11  downto 0  );
+            taps1x :  inout std_logic_vector( 11  downto 0  );
+            taps0x :  inout std_logic_vector( 11  downto 0  )
+        );
+    end component; 
+    begin 
+        oRed <= rRed;
+        oGreen <= rGreen(12  downto 1 );
+        oBlue <= rBlue;
+        L1 : Line_Buffer
+            port map (
+                clken => iDval,
+                clock => iCLK,
+                shiftin => iData,
+                shiftout =>  open ,
+                taps0x => wData2,
+                taps1x => wData1,
+                taps2x => wData0
+                );
+        process 
+        begin
+            wait until ( ( iRST_n'EVENT and ( iRST_n = '0' )  )  or ( iCLK'EVENT and ( iCLK = '1' )  )  ) ;
+            if ( (  not iRST_n )  ) then 
+                dval_ctrl <= 0 ;
+            else 
+                if ( ( iY_Cont > 1  )  ) then 
+                    dval_ctrl <= 1 ;
+                else 
+                    dval_ctrl <= 0 ;
+                end if;
+            end if;
+        end process;
+        process 
+        begin
+            wait until ( ( iRST_n'EVENT and ( iRST_n = '0' )  )  or ( dval_ctrl'EVENT and ( dval_ctrl = '1' )  )  ) ;
+            if ( (  not iRST_n )  ) then 
+                dval_ctrl_en <= 0 ;
+            else 
+                dval_ctrl_en <= 1 ;
+            end if;
+        end process;
+        process 
+        begin
+            wait until ( ( iRST_n'EVENT and ( iRST_n = '0' )  )  or ( iCLK'EVENT and ( iCLK = '1' )  )  ) ;
+            if ( (  not iRST_n )  ) then 
+                rDval <= 0 ;
+                oDval <= 0 ;
+            else 
+                if ( dval_ctrl_en ) then 
+                    rDval <= iDval;
+                    oDval <= rDval;
+                else 
+                    rDval <= iDval;
+                    oDval <= 0 ;
+                end if;
+            end if;
+        end process;
+        process 
+        begin
+            wait until ( ( iRST_n'EVENT and ( iRST_n = '0' )  )  or ( iCLK'EVENT and ( iCLK = '1' )  )  ) ;
+            if ( (  not iRST_n )  ) then 
+                wData0_d1 <= 0 ;
+                wData0_d2 <= 0 ;
+                wData1_d1 <= 0 ;
+                wData1_d2 <= 0 ;
+                wData2_d1 <= 0 ;
+                wData2_d2 <= 0 ;
+            else 
+                ( wData0_d2 & wData0_d1 ) <= ( wData0_d1 & wData0 );
+                ( wData1_d2 & wData1_d1 ) <= ( wData1_d1 & wData1 );
+                ( wData2_d2 & wData2_d1 ) <= ( wData2_d1 & wData2 );
+            end if;
+        end process;
+        process 
+        begin
+            wait until ( ( iRST_n'EVENT and ( iRST_n = '0' )  )  or ( iCLK'EVENT and ( iCLK = '1' )  )  ) ;
+            if ( (  not iRST_n )  ) then 
+                rRed <= 0 ;
+                rGreen <= 0 ;
+                rBlue <= 0 ;
+            else 
+                if ( ( ( iY_Cont(0 ) & iX_Cont(0 ) ) = B"11"  )  ) then 
+                    if ( ( iY_Cont = D"1"  )  ) then 
+                        rRed <= wData1_d1;
+                        rGreen <= ( wData0_d1 + wData1 ) ;
+                        rBlue <= wData0;
+                    else 
+                        rRed <= wData1_d1;
+                        rGreen <= ( wData1 + wData2_d1 ) ;
+                        rBlue <= wData2;
+                    end if;
+                else 
+                    if ( ( ( iY_Cont(0 ) & iX_Cont(0 ) ) = B"10"  )  ) then 
+                        if ( ( iY_Cont = D"1"  )  ) then 
+                            if ( ( iX_Cont = '0' )  ) then 
+                                rRed <= wData0_d2;
+                                rGreen <= ( wData1_d2 & '0' );
+                                rBlue <= wData1_d1;
+                            else 
+                                rRed <= wData1;
+                                rGreen <= ( wData1_d1 + wData0 ) ;
+                                rBlue <= wData0_d1;
+                            end if;
+                        else 
+                            if ( ( iX_Cont = '0' )  ) then 
+                                rRed <= wData2_d2;
+                                rGreen <= ( wData2_d1 & '0' );
+                                rBlue <= wData1_d1;
+                            else 
+                                rRed <= wData1;
+                                rGreen <= ( wData1_d1 + wData2 ) ;
+                                rBlue <= wData2_d1;
+                            end if;
+                        end if;
+                    else 
+                        if ( ( ( iY_Cont(0 ) & iX_Cont(0 ) ) = B"01"  )  ) then 
+                            rRed <= wData2_d1;
+                            rGreen <= ( wData2 + wData1_d1 ) ;
+                            rBlue <= wData1;
+                        else 
+                            if ( ( ( iY_Cont(0 ) & iX_Cont(0 ) ) = B"00"  )  ) then 
+                                if ( ( iX_Cont = '0' )  ) then 
+                                    rRed <= wData1_d2;
+                                    rGreen <= ( wData2_d2 & '0' );
+                                    rBlue <= wData2_d1;
+                                else 
+                                    rRed <= wData2;
+                                    rGreen <= ( wData2_d1 + wData1 ) ;
+                                    rBlue <= wData1_d1;
+                                end if;
+                            end if;
+                        end if;
+                    end if;
+                end if;
+            end if;
+        end process;
+    end; 
+
+
